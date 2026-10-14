@@ -512,14 +512,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.8"
-  flutter_multicast_lock:
-    dependency: transitive
-    description:
-      name: flutter_multicast_lock
-      sha256: "148ff4a5e3f3231fc0fdb049fa2c4769e9222d4774c1404633907803375a59b3"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.2.1"
   flutter_overlay_window:
     dependency: "direct main"
     description:
@@ -743,13 +735,14 @@ packages:
     source: hosted
     version: "0.1.1+1"
   gamepads_windows:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: gamepads_windows
-      sha256: "650b68a4bc5d729abf12f0d2d3a53c05e4070a288c7e5575edfd485774550d8c"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.0+1"
+      path: "packages/gamepads_windows"
+      ref: windows-api-rework
+      resolved-ref: "7c56d38be36663e378c2468ea83a4c115cc8e4ed"
+      url: "https://github.com/lea108/gamepads.git"
+    source: git
+    version: "0.1.4+1"
   gap:
     dependency: transitive
     description:
@@ -1546,7 +1539,7 @@ packages:
   prop:
     dependency: "direct main"
     description:
-      path: prop
+      path: prop_public
       relative: true
     source: path
     version: "0.0.1"
@@ -1585,19 +1578,17 @@ packages:
   purchases_flutter:
     dependency: "direct main"
     description:
-      name: purchases_flutter
-      sha256: "1a7132bac772d90e9b959364369beddfc7fca8a3d2909d6e4d818cef7fd64a8f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "9.10.6"
+      path: "vendor/purchases_flutter"
+      relative: true
+    source: path
+    version: "9.16.1"
   purchases_ui_flutter:
     dependency: "direct main"
     description:
-      name: purchases_ui_flutter
-      sha256: "350550b6fe8cf91a8de9e613ed38829fcdd5e098f0ae1ae25d5b2d45c680c842"
-      url: "https://pub.dev"
-    source: hosted
-    version: "9.10.6"
+      path: "vendor/purchases_ui_flutter"
+      relative: true
+    source: path
+    version: "9.16.1"
   quiver:
     dependency: transitive
     description:

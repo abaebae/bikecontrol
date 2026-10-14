@@ -128,6 +128,10 @@ dev_dependencies:
   video_player_platform_interface: ^6.9.0
 
 dependency_overrides:
+  purchases_flutter:
+    path: vendor/purchases_flutter
+  purchases_ui_flutter:
+    path: vendor/purchases_ui_flutter
   path_provider_foundation: ">=2.3.0 <2.6.0"
   gamepads_windows:
     git:
