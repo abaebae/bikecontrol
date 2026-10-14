@@ -43,12 +43,33 @@ class ResilientTcpServer {
   /// One client went away, while others may remain.
   final void Function(Socket socket)? onClientLeft;
 
-  bool get isRunning => false;
-  bool get hasClient => false;
-  Socket? get client => null;
-  int get boundPort => preferredPort;
+  ServerSocket? _server;
+  Socket? _client;
+  bool _started = false;
 
-  Future<void> start() async {}
+  bool get isRunning => _started;
+  bool get hasClient => _client != null;
+  Socket? get client => _client;
+  int get boundPort => _server?.port ?? preferredPort;
+
+  Future<void> start() async {
+    if (_started) return;
+    final server = await ServerSocket.bind(
+      forceIPv4 ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4,
+      preferredPort,
+    );
+    _server = server;
+    _started = true;
+    activeServers.add(this);
+    server.listen((socket) {
+      _client = socket;
+      onClientConnected(socket);
+      socket.listen((data) => onData(socket, data), onDone: () {
+        onClientDisconnected();
+        _client = null;
+      });
+    });
+  }
 
   /// Announces that this process is about to open a throwaway TCP connection
   /// to its own server, so the next matching accepted socket is ignored.
@@ -56,9 +77,26 @@ class ResilientTcpServer {
     required String address,
     required int sourcePort,
     Duration validity = const Duration(seconds: 5),
-  }) {}
+  }) {
+    _probeAddress = address;
+    _probeSourcePort = sourcePort;
+  }
 
-  void dropClient() {}
+  String? _probeAddress;
+  int? _probeSourcePort;
 
-  Future<void> stop() async {}
+  void dropClient() {
+    _client?.close();
+    _client = null;
+  }
+
+  Future<void> stop() async {
+    if (!isRunning) return;
+    try {
+      await _server?.close();
+    } catch (_) {}
+    _server = null;
+    _started = false;
+    activeServers.remove(this);
+  }
 }

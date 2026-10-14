@@ -65,6 +65,19 @@ class Logger {
       print('\x1B[34m$s\x1B[0m');
     }
   }
+
+  /// Wired by the app to the verbose wire-trace buffer (support bundles).
+  static void Function(String text)? onTrace;
+
+  /// Verbose wire-level trace. The message closure is only evaluated when
+  /// a trace sink (or a debug console) is actually attached.
+  static void trace(String Function() message) {
+    final text = message();
+    onTrace?.call(text);
+    if (kDebugMode) {
+      print('${DateTime.now()} $text');
+    }
+  }
 }
 
 extension UuidDash on String {

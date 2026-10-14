@@ -33,6 +33,10 @@ int _portNumberIterator = 36868;
 @visibleForTesting
 void debugSetDirconPortBase(int base) => _portNumberIterator = base;
 
+/// The standard Wahoo DirCon TCP port. Clients that hard-dial it (ignoring
+/// the mDNS SRV port) expect the server here.
+const int kWahooDirconStandardPort = 36867;
+
 class DirconEmulator {
   /// [preferredPort] pins the TCP port the emulator asks its server to bind
   /// first. Left unset it auto-assigns a distinct port so concurrent
@@ -86,6 +90,25 @@ class DirconEmulator {
   /// Stubbed: the full implementation derives the advertised name from the
   /// trainer-app / trial / device-name callbacks.
   String get advertisementName => 'BikeControl';
+
+  /// Overrides the advertised peripheral name verbatim when set.
+  set advertisementNameOverride(String? Function()? override) => _advertisementNameOverride = override;
+  String? Function()? _advertisementNameOverride;
+
+  /// Whether the advertisement should use bare 16-bit service UUIDs (some
+  /// trainer apps, e.g. Tacx, only match those).
+  set bareShortServiceUuids(bool Function()? callback) => _bareShortServiceUuids = callback;
+  bool Function()? _bareShortServiceUuids;
+
+  /// Whether the transport must bind IPv4 only (apps whose discovery breaks
+  /// on dual-stack).
+  set forceIPv4(bool Function()? callback) => _forceIPv4 = callback;
+  bool Function()? _forceIPv4;
+
+  /// Whether the emulator has nothing worth serving: no children, or only a
+  /// rider-metrics [SensorDefinition] riding along after its trainer left.
+  /// A lone SensorDefinition must not keep the shared bridge composite alive.
+  bool get hasNothingToServe => composite.children.every((c) => c is SensorDefinition);
 
   bool processCharacteristic(String characteristic, Uint8List bytes) => false;
 

@@ -1,29 +1,42 @@
 //INFO: This is a stub - contact me if you need the full implementation.
 //
-// The full implementation is an in-process mDNS responder. This stub keeps
-// only the query-log entry the app renders in its diagnostics.
+// The full implementation is an in-process mDNS responder with pinned
+// multicast egress and a query log it folds repeated identical queries
+// into (by entry identity, bumping [MdnsQueryLogEntry.count] in place).
+// This stub keeps the log-entry surface the app's diagnostics, privacy
+// filter and network self-test read.
 
-/// One mDNS query this responder saw, with repeats folded together.
+/// One observed mDNS query (possibly folded across repeats).
+///
+/// Identity matters: the responder folds a repeat by mutating the SAME
+/// entry (`count++`) and re-appending it at the tail of the log, so
+/// consumers must correlate entries by instance, never by list position.
 class MdnsQueryLogEntry {
-  /// When this query was last seen. Updated on every repeat.
-  DateTime at;
+  final DateTime at;
 
-  /// Querier address, e.g. '192.168.178.50'.
+  /// Dotted-quad source address of the querier.
   final String source;
-
   final int sourcePort;
 
-  /// Whether the query asked for a unicast reply (the QU bit, RFC 6762 §5.4).
+  /// Whether the querier requested a unicast (QU) reply.
   final bool wantsUnicast;
 
-  /// Human-readable questions, e.g. 'PTR _wahoo-fitness-tnp._tcp.local'.
+  /// Question names in wire order, e.g. `PTR _wahoo-fitness-tnp._tcp.local`.
   final List<String> questions;
-
   final bool answeredUnicast;
   final bool answeredMulticast;
 
-  /// How many times this exact query was seen in a row.
+  /// How many identical queries this entry has folded so far. Starts at 1.
   int count;
+
+  /// How the query was answered, for diagnostics: `unicast`, `multicast`,
+  /// `unicast+multicast`, or `no answer`.
+  String get reply {
+    if (answeredUnicast && answeredMulticast) return 'unicast+multicast';
+    if (answeredUnicast) return 'unicast';
+    if (answeredMulticast) return 'multicast';
+    return 'no answer';
+  }
 
   MdnsQueryLogEntry({
     required this.at,
@@ -35,9 +48,4 @@ class MdnsQueryLogEntry {
     required this.answeredMulticast,
     this.count = 1,
   });
-
-  String get reply => '';
-
-  @override
-  String toString() => '$source:$sourcePort';
 }

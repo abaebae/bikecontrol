@@ -100,29 +100,45 @@ class FitnessBikeDefinition extends BleDefinition {
 
   int get maxGear => 13;
 
-  get cadenceRpm => null;
+  final ValueNotifier<int?> _cadenceRpmN = ValueNotifier<int?>(null);
+  ValueListenable<int?> get cadenceRpm => _cadenceRpmN;
 
-  get speedKph => null;
+  final ValueNotifier<int?> _powerWN = ValueNotifier<int?>(null);
+  ValueListenable<int?> get powerW => _powerWN;
 
-  get powerW => null;
+  final ValueNotifier<double?> _speedKphN = ValueNotifier<double?>(null);
+  ValueListenable<double?> get speedKph => _speedKphN;
 
-  get heartRateBpm => null;
+  /// Cadence after the app-side smoothing filter. Stub: passthrough.
+  int? get filteredCadence => _cadenceRpmN.value;
 
-  get trainerMode => null;
+  final ValueNotifier<int?> _heartRateBpmN = ValueNotifier<int?>(null);
+  ValueListenable<int?> get heartRateBpm => _heartRateBpmN;
 
-  get ergTargetPower => null;
+  final ValueNotifier<TrainerMode> _trainerModeN = ValueNotifier(TrainerMode.simMode);
+  ValueListenable<TrainerMode> get trainerMode => _trainerModeN;
 
-  get currentGear => null;
+  final ValueNotifier<int?> _ergTargetPowerN = ValueNotifier<int?>(null);
+  ValueListenable<int?> get ergTargetPower => _ergTargetPowerN;
 
-  get targetPowerW => null;
+  final ValueNotifier<int> _currentGearN = ValueNotifier(0);
+  ValueListenable<int> get currentGear => _currentGearN;
 
-  get gearRatio => null;
+  final ValueNotifier<int> _targetPowerWN = ValueNotifier(0);
+  ValueListenable<int> get targetPowerW => _targetPowerWN;
+
+  final ValueNotifier<double> _gearRatioN = ValueNotifier(0.0);
+  ValueListenable<double> get gearRatio => _gearRatioN;
 
   ValueNotifier<List<double>> get gearRatios => ValueNotifier([]);
 
-  ValueNotifier get virtualShiftingMode => ValueNotifier(false);
+  final ValueNotifier<VirtualShiftingMode> _virtualShiftingModeN = ValueNotifier(
+    VirtualShiftingMode.targetPower,
+  );
+  ValueListenable<VirtualShiftingMode> get virtualShiftingMode => _virtualShiftingModeN;
 
-  ValueNotifier get trainerFeature => ValueNotifier(false);
+  final ValueNotifier<bool> _trainerFeatureN = ValueNotifier(false);
+  ValueListenable<bool> get trainerFeature => _trainerFeatureN;
 
   ValueListenable<bool> get gradeSmoothingEnabled => ValueNotifier(false);
 
@@ -194,11 +210,11 @@ class FitnessBikeDefinition extends BleDefinition {
 
   void setGradeSmoothingEnabled(bool gradeSmoothing) {}
 
-  void setVirtualShiftingMode(VirtualShiftingMode mode) {}
+  void setVirtualShiftingMode(VirtualShiftingMode mode) => _virtualShiftingModeN.value = mode;
 
   void setGearRatios(List<double> list) {}
 
-  void setManualErgPower(param0) {}
+  void setManualErgPower(int watts) => _ergTargetPowerN.value = watts;
 
   bool shiftUp() {
     return false;
@@ -208,7 +224,7 @@ class FitnessBikeDefinition extends BleDefinition {
     return false;
   }
 
-  void exitErgMode() {}
+  void exitErgMode() => _ergTargetPowerN.value = null;
 
   void adjustIntensity(double d) {}
 
@@ -225,6 +241,78 @@ class FitnessBikeDefinition extends BleDefinition {
   void resetGearRatios() {}
 
   void setTargetGear(int i) {}
+
+  // ── Control-protocol (FTMS / FEC / Zwift Sync) delivery ──────────────────
+
+  /// The protocol currently driving the trainer: the rider's override when
+  /// set, auto-detection otherwise. Stub: always FTMS.
+  TrainerControlProtocol get controlProtocol => _controlProtocolOverride ?? TrainerControlProtocol.ftms;
+
+  TrainerControlProtocol? _controlProtocolOverride;
+
+  /// The rider-forced delivery, null for auto. Plain state, not a
+  /// listenable — the settings UI repaints itself after setting it.
+  TrainerControlProtocol? get controlProtocolOverride => _controlProtocolOverride;
+
+  /// Every delivery this trainer's advertised services can carry. Stub:
+  /// FTMS only, so the protocol card stays hidden (single option).
+  List<TrainerControlProtocol> get supportedControlProtocols => const [TrainerControlProtocol.ftms];
+
+  /// Forces the delivery, or null for auto. Ignored for protocols the
+  /// trainer cannot carry.
+  void setControlProtocolOverride(TrainerControlProtocol? protocol) => _controlProtocolOverride = protocol;
+
+  /// The last control-point write, for support bundles. Stub: nothing.
+  ControlWriteResult? get lastControlWrite => null;
+
+  /// Watchdog verdict for native gear commands going unacknowledged.
+  final ValueNotifier<ZwiftGearEchoVerdict?> _gearEchoVerdictN = ValueNotifier(null);
+  ValueListenable<ZwiftGearEchoVerdict?> get gearEchoVerdict => _gearEchoVerdictN;
+
+  /// Watchdog verdict for grade-simulation writes being refused.
+  final ValueNotifier<bool> _trackResistanceRefusedN = ValueNotifier(false);
+  ValueListenable<bool> get trackResistanceRefused => _trackResistanceRefusedN;
+
+  /// One-line FTMS capability summary for support bundles.
+  String get ftmsCapabilitySummary => '';
+
+  /// One-line Zwift handshake summary, 'n/a' when the trainer does not speak
+  /// Zwift Sync.
+  String get zwiftHandshakeSummary => 'n/a';
+
+  /// One-line native gear-acknowledgement summary, 'n/a' when not applicable.
+  String get gearEchoSummary => 'n/a';
+
+  /// The mode the definition would pick itself with no saved config:
+  /// capability-based (Track Resistance on a grade-capable trainer) rather
+  /// than the generic Target Power.
+  VirtualShiftingMode get defaultVirtualShiftingMode => VirtualShiftingMode.targetPower;
+
+  void useDefaultVirtualShiftingMode() => setVirtualShiftingMode(defaultVirtualShiftingMode);
+
+  /// The mode actually driving the trainer: the saved mode, unless the
+  /// trainer reports no cadence — the cadence-driven modes skip every write
+  /// there, so the definition falls back to Target Power.
+  VirtualShiftingMode get effectiveVirtualShiftingMode => virtualShiftingMode.value;
+
+  /// Seeds the trainer-side heart rate. Unconditional: an external heart
+  /// rate source must reach the wire on the next notification even when the
+  /// value did not change.
+  void setExternalHeartRate(int? bpm) => _heartRateBpmN.value = bpm;
+
+  /// Seeds the trainer-side cadence. Guarded on non-null: the field is
+  /// non-nullable-on-the-wire and a null would latch it at 0 for every
+  /// rider with no external source selected.
+  void setExternalCadence(int? rpm) {
+    if (rpm == null) return;
+    _cadenceRpmN.value = rpm;
+  }
+
+  /// Seeds the trainer-side power. Same null-guard reasoning as cadence.
+  void setExternalPower(int? watts) {
+    if (watts == null) return;
+    _powerWN.value = watts;
+  }
 
   // FAKE placeholder UUID.
   static const String FEC_BLE_SERVICE_UUID = '00000000-0000-0000-0000-0000000000c0';
@@ -295,11 +383,20 @@ enum ZwiftGearEchoVerdict {
   riderOverrideKept,
 }
 
+/// How BikeControl drives the trainer: native FTMS control point, ANT+---
+/// over-BLE FEC, or the Zwift custom Sync protocol.
+enum TrainerControlProtocol { ftms, fec, zwiftHub }
+
+/// Record of one control-point write, for support bundles.
+class ControlWriteResult {
+  final DateTime at;
+  final bool ok;
+
+  const ControlWriteResult({required this.at, required this.ok});
+}
+
 enum FrontRing { small, large }
 
 enum TrainerMode { ergMode, simMode, simModeVirtualShifting }
 
 enum VirtualShiftingMode { targetPower, trackResistance, basicResistance }
-
-/// The wire a trainer's control commands are delivered over.
-enum TrainerControlProtocol { ftms, fec, zwiftHub }

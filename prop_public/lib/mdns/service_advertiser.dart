@@ -45,6 +45,14 @@ abstract class ServiceAdvertiser {
   /// The right backend for the current platform.
   static ServiceAdvertiser platformDefault() => NsdServiceAdvertiser();
 
+  /// The advertised address listenable backends whose daemon owns the
+  /// records report — a constant null, so address-move watchers are inert.
+  static final ValueListenable<String?> untrackedAddress = ValueNotifier<String?>(null);
+
+  /// The IPv4 address currently advertised, for mid-session network-move
+  /// alerts. Null when unknown / not advertising.
+  ValueListenable<String?> get advertisedAddress => untrackedAddress;
+
   Future<ServiceAdvertisement> register(AdvertisedService service);
 
   /// The IPv4 currently in our advertisements, or null when nothing is
@@ -101,6 +109,12 @@ class ResponderServiceAdvertiser implements ServiceAdvertiser {
   @override
   ValueListenable<String?> get advertisedAddress => ServiceAdvertiser.untrackedAddress;
 
+  @override
+  Future<ServiceAdvertisement> register(AdvertisedService service) => throw UnimplementedError();
+}
+
+/// The OS-responder backend via the `nsd` plugin. Stubbed here.
+class _StubServiceAdvertiser implements ServiceAdvertiser {
   @override
   Future<ServiceAdvertisement> register(AdvertisedService service) => throw UnimplementedError();
 }
