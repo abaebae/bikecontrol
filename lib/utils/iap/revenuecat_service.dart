@@ -10,6 +10,7 @@ import 'package:bike_control/services/entitlements_service.dart';
 import 'package:bike_control/utils/analytics/campaign_attributes.dart';
 import 'package:bike_control/utils/analytics/install_referrer_reporter.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
@@ -99,6 +100,19 @@ class RevenueCatService {
       // Skip RevenueCat initialization on web or unsupported platforms
       if (kIsWeb) {
         debugPrint('RevenueCat not supported on web');
+        _isInitialized = true;
+        return;
+      }
+
+      // Personal fork patch: everything is unlocked, so RevenueCat is never
+      // configured. Without `Purchases.configure` any later SDK call
+      // (`Purchases.appUserID`, `getCustomerInfo`, …) trips a native
+      // precondition and crashes, so the service stays a dead shell and all
+      // call sites must guard on [IAPManager.unlockAllPro].
+      if (IAPManager.unlockAllPro) {
+        isPurchasedNotifier.value = true;
+        isProNotifier.value = true;
+        _isConfigured = false;
         _isInitialized = true;
         return;
       }

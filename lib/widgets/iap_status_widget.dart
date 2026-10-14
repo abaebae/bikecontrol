@@ -211,7 +211,7 @@ class _IAPStatusWidgetState extends State<IAPStatusWidget> {
                                                 OutlineButton(
                                                   child: Text(context.i18n.getSupport),
                                                   onPressed: () async {
-                                                    final appUserId = await Purchases.appUserID;
+                                                    final appUserId = IAPManager.unlockAllPro ? 'unlocked-build' : await Purchases.appUserID;
                                                     launchUrlString(
                                                       'mailto:jonas@bikecontrol.app?subject=Bike%20Control%20Purchase%20Redemption%20Help%20for%20$appUserId',
                                                     );
@@ -267,7 +267,7 @@ class _IAPStatusWidgetState extends State<IAPStatusWidget> {
                                 OutlineButton(
                                   child: Text(context.i18n.getSupport),
                                   onPressed: () async {
-                                    final appUserId = await Purchases.appUserID;
+                                    final appUserId = IAPManager.unlockAllPro ? 'unlocked-build' : await Purchases.appUserID;
                                     launchUrlString(
                                       'mailto:jonas@bikecontrol.app?subject=Bike%20Control%20Purchase%20Redemption%20Help%20for%20$appUserId',
                                     );
@@ -311,7 +311,7 @@ class _IAPStatusWidgetState extends State<IAPStatusWidget> {
                                 OutlineButton(
                                   child: Text(context.i18n.getSupport),
                                   onPressed: () async {
-                                    final appUserId = await Purchases.appUserID;
+                                    final appUserId = IAPManager.unlockAllPro ? 'unlocked-build' : await Purchases.appUserID;
                                     launchUrlString(
                                       'mailto:jonas@bikecontrol.app?subject=Bike%20Control%20Purchase%20Redemption%20Help%20for%20$appUserId',
                                     );
@@ -470,7 +470,7 @@ class _IAPStatusWidgetState extends State<IAPStatusWidget> {
   }) async {
     final uri = Uri.parse('$supabaseUrl/functions/v1/redeem-purchase');
 
-    final appUserId = await Purchases.appUserID;
+    final appUserId = IAPManager.unlockAllPro ? 'unlocked-build' : await Purchases.appUserID;
 
     final response = await http.post(
       uri,

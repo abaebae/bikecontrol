@@ -61,6 +61,11 @@ class IAPManager {
   static const String betaAccessProductKey = 'beta_access';
   static int dailyCommandLimit = 15;
 
+  /// Personal fork patch: every entitlement reports Pro and all paywall /
+  /// upgrade UI is bypassed. No subscription, trial, command budget or
+  /// device registration applies to this build.
+  static const bool unlockAllPro = true;
+
   RevenueCatService? _revenueCatService;
   WindowsIAPService? _windowsIapService;
   StreamSubscription<AuthState>? _authSubscription;
@@ -122,14 +127,14 @@ class IAPManager {
   /// before the first entitlements fetch.
   bool get isBetaTester => (isLoggedIn && entitlements.hasActive(betaAccessProductKey) || kDebugMode);
 
-  bool get hasActiveSubscription =>
-      (isLoggedIn && (entitlements.hasActive(premiumMonthlyProductKey)) ||
-          entitlements.hasActive(premiumYearlyProductKey)) ||
-      (!isLoggedIn && isLocalPro.value);
+  bool get hasActiveSubscription => unlockAllPro || ((isLoggedIn && (entitlements.hasActive(premiumMonthlyProductKey)) ||
+      entitlements.hasActive(premiumYearlyProductKey)) ||
+      (!isLoggedIn && isLocalPro.value));
 
-  bool get isProEnabled => hasActiveSubscription && (isLoggedIn || (!isLoggedIn && isLocalPro.value));
+  bool get isProEnabled => unlockAllPro || (hasActiveSubscription && (isLoggedIn || (!isLoggedIn && isLocalPro.value)));
 
   bool get isProEnabledForCurrentDevice {
+    if (unlockAllPro) return true;
     if (!_isInitialized) return false;
     if (_unregisteredDeviceForTesting) return false;
     return hasActiveSubscription &&
@@ -141,9 +146,10 @@ class IAPManager {
   /// "Pro (unregistered device)" in the title bar and wrote in believing Pro
   /// was broken — the home banner, the virtual-shifting notice and the
   /// post-purchase dialog all key off this.
-  bool get isProButDeviceUnregistered => _isInitialized && isProEnabled && !isProEnabledForCurrentDevice;
+  bool get isProButDeviceUnregistered => !unlockAllPro && _isInitialized && isProEnabled && !isProEnabledForCurrentDevice;
 
   bool get isProEnabledForCurrentDeviceOrDidPurchaseOld {
+    if (unlockAllPro) return true;
     if (!_isInitialized) return false;
     return isProEnabledForCurrentDevice || hasPurchasedBefore50RVC;
   }
@@ -374,7 +380,10 @@ class IAPManager {
 
   /// Get a status message for the user.
   String getStatusMessage() {
+    if (unlockAllPro) return '';
     final l10n = AppLocalizations.current;
+    final activeUntil = premiumActiveUntil;
+    final expiryInfo = activeUntil != null ? '\nexpires at ${_formatDate(activeUntil)}' : '';
     if (kIsWeb) {
       return "Web";
     } else if (isProEnabledForCurrentDevice) {
@@ -444,6 +453,8 @@ class IAPManager {
   }
 
   Future<void> _showPaywall(BuildContext context, bool subscription) async {
+    // Personal fork patch: no paywall to show.
+    if (unlockAllPro) return;
     // openDrawer needs a DrawerOverlay ancestor (Scaffold creates one) and does
     // `parentLayer!` in release, so a caller that hands us a context from above
     // its own Scaffold turns "Go Pro" into a bare "Null check operator used on
@@ -479,7 +490,7 @@ class IAPManager {
   }
 
   /// Check if RevenueCat is being used.
-  bool get isUsingRevenueCat => _revenueCatService != null;
+  bool get isUsingRevenueCat => !unlockAllPro && _revenueCatService != null;
 
   /// Check if running on Windows
   bool get isWindows => _windowsIapService != null;
