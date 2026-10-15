@@ -9,6 +9,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:prop/mdns/dnssd_service_advertiser.dart';
 import 'package:prop/mdns/mdns_responder.dart';
 
 class AdvertisedService {
@@ -40,10 +41,20 @@ abstract class ServiceAdvertisement {
 
 abstract class ServiceAdvertiser {
   /// Process-wide advertiser the emulators use.
-  static ServiceAdvertiser instance = NsdServiceAdvertiser();
+  static ServiceAdvertiser instance = platformDefault();
 
   /// The right backend for the current platform.
-  static ServiceAdvertiser platformDefault() => NsdServiceAdvertiser();
+  ///
+  /// iOS publishes through Bonjour's dns_sd API (a dedicated host record with a
+  /// single IPv4 A record — no multicast entitlement needed, and no IPv6
+  /// link-locals that trainer apps cannot reach). Every other platform uses the
+  /// OS responder. (The full implementation uses the in-process responder on
+  /// desktop/Android; this public stub keeps the OS responder as the fallback
+  /// so the app still compiles off iOS.)
+  static ServiceAdvertiser platformDefault() {
+    if (!kIsWeb && Platform.isIOS) return DnsSdServiceAdvertiser();
+    return NsdServiceAdvertiser();
+  }
 
   /// The advertised address listenable backends whose daemon owns the
   /// records report — a constant null, so address-move watchers are inert.
@@ -85,11 +96,14 @@ class ResponderServiceAdvertiser implements ServiceAdvertiser {
 
   final Duration announceInterval;
 
-  ResponderServiceAdvertiser({this.announceInterval = defaultAnnounceInterval});
+  final String? _hostLabel;
+
+  ResponderServiceAdvertiser({this.announceInterval = defaultAnnounceInterval, String? hostLabel})
+    : _hostLabel = hostLabel;
 
   /// The dedicated mDNS hostname label (without `.local`) all services share.
   /// Null while nothing is advertised.
-  String? get hostLabel => null;
+  String? get hostLabel => _hostLabel;
 
   /// Android only: whether the active responder socket holds the multicast
   /// lock. False when nothing is currently advertised.
@@ -100,15 +114,6 @@ class ResponderServiceAdvertiser implements ServiceAdvertiser {
 
   Future<void> refreshAddress() async {}
 
-  @override
-  ValueListenable<String?> get advertisedAddress => ServiceAdvertiser.untrackedAddress;
-
-  @override
-  Future<ServiceAdvertisement> register(AdvertisedService service) => throw UnimplementedError();
-}
-
-/// The OS-responder backend via the `nsd` plugin. Stubbed here.
-class _StubServiceAdvertiser implements ServiceAdvertiser {
   @override
   ValueListenable<String?> get advertisedAddress => ServiceAdvertiser.untrackedAddress;
 
