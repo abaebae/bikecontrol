@@ -643,4 +643,8 @@ class IAPManager {
   void setWinBoughtBefore50() {
     _windowsIapService?.setBoughtBefore50();
   }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
 }

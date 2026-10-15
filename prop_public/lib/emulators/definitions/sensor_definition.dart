@@ -54,13 +54,6 @@ class SensorDefinition extends BleDefinition {
   int? get cadenceRpm => _cadenceRpm;
   int? get powerWatts => _powerWatts;
 
-  /// Chooses which services this definition advertises and notifies.
-  void exposeServices({required bool heartRate, required bool cadence, required bool power}) {
-    _heartRate = heartRate;
-    _cadence = cadence;
-    _power = power;
-  }
-
   @override
   List<String> get serviceUUIDs => [
     if (_heartRate) HEART_RATE_SERVICE_UUID,

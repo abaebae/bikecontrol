@@ -55,14 +55,8 @@ abstract class ServiceAdvertiser {
 
   Future<ServiceAdvertisement> register(AdvertisedService service);
 
-  /// The IPv4 currently in our advertisements, or null when nothing is
-  /// advertised. Backends whose daemon owns the records report
-  /// [untrackedAddress].
-  ValueListenable<String?> get advertisedAddress => untrackedAddress;
-
   /// A never-changing null [advertisedAddress] for backends that do not own
   /// their host records.
-  static final ValueListenable<String?> untrackedAddress = ValueNotifier<String?>(null);
 }
 
 /// Hostname-label rules shared by the backends that publish their own host
@@ -115,6 +109,9 @@ class ResponderServiceAdvertiser implements ServiceAdvertiser {
 
 /// The OS-responder backend via the `nsd` plugin. Stubbed here.
 class _StubServiceAdvertiser implements ServiceAdvertiser {
+  @override
+  ValueListenable<String?> get advertisedAddress => ServiceAdvertiser.untrackedAddress;
+
   @override
   Future<ServiceAdvertisement> register(AdvertisedService service) => throw UnimplementedError();
 }

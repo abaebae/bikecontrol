@@ -27,12 +27,6 @@ enum ClickKeepAwakeStatus {
 class ClickLogic {
   static final _resettingDevices = <String>{};
 
-  /// Whether a left puck is currently in range. Supplied by the app.
-  static bool Function()? isLeftSideNearby;
-
-  /// Where the right puck's keep-awake has got to.
-  static final keepAwakeStatus = ValueNotifier<ClickKeepAwakeStatus>(ClickKeepAwakeStatus.idle);
-
   static final _keepAwakeStatusN = ValueNotifier(ClickKeepAwakeStatus.idle);
 
   /// Live state of the Click V2 keep-awake choreography, for the home card.
@@ -63,11 +57,4 @@ class ClickLogic {
   static Future<void> setupHandshake(List<BleService> services, String deviceId, {required bool isRight}) async {}
 
   static void resetTimer() {}
-
-  /// Re-enters the keep-awake sequence when a left puck comes back into
-  /// range. Stub: nothing pending is ever remembered.
-  static void startKeepAwakeIfPending() {}
-
-  /// Drops any pending keep-awake state (right puck went away).
-  static void forgetKeepAwake() => _keepAwakeStatusN.value = ClickKeepAwakeStatus.idle;
 }

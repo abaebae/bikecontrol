@@ -91,20 +91,6 @@ class DirconEmulator {
   /// trainer-app / trial / device-name callbacks.
   String get advertisementName => 'BikeControl';
 
-  /// Overrides the advertised peripheral name verbatim when set.
-  set advertisementNameOverride(String? Function()? override) => _advertisementNameOverride = override;
-  String? Function()? _advertisementNameOverride;
-
-  /// Whether the advertisement should use bare 16-bit service UUIDs (some
-  /// trainer apps, e.g. Tacx, only match those).
-  set bareShortServiceUuids(bool Function()? callback) => _bareShortServiceUuids = callback;
-  bool Function()? _bareShortServiceUuids;
-
-  /// Whether the transport must bind IPv4 only (apps whose discovery breaks
-  /// on dual-stack).
-  set forceIPv4(bool Function()? callback) => _forceIPv4 = callback;
-  bool Function()? _forceIPv4;
-
   /// Whether the emulator has nothing worth serving: no children, or only a
   /// rider-metrics [SensorDefinition] riding along after its trainer left.
   /// A lone SensorDefinition must not keep the shared bridge composite alive.
@@ -136,10 +122,6 @@ class DirconEmulator {
   Future<void> debug() async {}
 
   BleDefinition? get activeDefinition => composite;
-
-  /// Whether the composite holds nothing a trainer app would connect for —
-  /// rider-metric sinks alone don't count.
-  bool get hasNothingToServe => composite.children.every((c) => c is SensorDefinition);
 
   /// Attach [def] as a child of this emulator's [composite].
   Future<void> attachDefinition(BleDefinition def) async {

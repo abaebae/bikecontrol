@@ -19,9 +19,6 @@ class BridgeUsageTracker {
 
   bool get isCountingDown => false;
 
-  /// Bridge minutes still available today. Stub: the full daily budget.
-  Duration get remainingToday => dailyLimit;
-
   get onBudgetExhausted => null;
 
   void startSession({required bool Function() isActive}) {}
