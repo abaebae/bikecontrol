@@ -1,6 +1,6 @@
 # Zwift Ride Controller → MyWhoosh Bridge — Build Status
 
-**Date:** 2026-10-14  
+**Date:** 2026-10-15  
 **Repo:** `/Users/dmw/git/sport/zwift-ride-controller` (fork of `OpenBikeControl/bikecontrol`)  
 **Branch:** `main` @ `addf76d` + custom patches  
 **Target:** iPhone (Znift Ride BLE) + iPad (MyWhoosh app) → MyWhoosh Link over local network  
@@ -60,6 +60,25 @@ Result: `flutter analyze` lib/ errors **→ 0**; `flutter build ios --debug --no
      - `expectProbe()`/`acceptProbe()` test seams kept for the network self-test (with corrected types)
    - `lib/bluetooth/devices/mywhoosh/link.dart` → `WhooshLink.startServer()` uses this and now actually opens port 21587
 
+4. **Network self-test — real advertised-address picker (the "No Wi-Fi" / invisible-advertisement fix)**
+   - `prop_public/lib/utils/network_address.dart` was a stub that returned the *first* non-loopback IPv4 with score 0
+   - On iOS the interface enumeration yields the cellular (`pdp_ip0`) and `ipsec0` (192.0.0.x) addresses before Wi-Fi `en0`, so the app advertised a non-LAN address: the self-test's *Advertised address* row reported "no Wi-Fi" and *Advertisement visible on the network* failed (the dns_sd host record and service are pinned to the interface holding that address, so a Wi-Fi-only browser never saw them)
+   - Reimplemented `AdvertisedAddressPicker.report()` with real scoring:
+     - Wi-Fi/Ethernet ports (`en*`, `eth*`, `wl*`, Windows `Wi-Fi`/`Ethernet`/`WLAN`) score high
+     - cellular, VPN tunnels and bridges/container NICs (`utun`, `tun`, `tap`, `bridge`, `docker`, `vmnet`, …) are demoted and flagged `isVirtual`
+     - `169.254/16` and `192.0.0/24` never win; CGNAT (`100.64/10`) is demoted; RFC 1918 gets a small bonus
+     - ties prefer a real port, then the first enumerated
+   - `ipsec`/vendor `vgate` NICs stay non-virtual (a real VPN rides on them; the VPN row reports it, not the two-networks warning)
+   - Regression test: `test/services/network_self_test/advertised_address_picker_test.dart`
+
+5. **iOS mDNS backend — publish through the dns_sd bridge by default**
+   - `prop_public/lib/mdns/service_advertiser.dart`: `ServiceAdvertiser.platformDefault()` returned the OS-responder stub whose `register()` throws `UnimplementedError`; on iOS it now returns the real `DnsSdServiceAdvertiser`
+   - `prop_public/lib/mdns/dnssd_service_advertiser.dart`: the dns_sd MethodChannel bridge (register host A record + service, conflict fallback label, host cleanup on failure) over `ios/Runner/DnsSdAdvertiser.swift`
+
+6. **MyWhoosh Link — dual-stack TCP server**
+   - `prop_public/lib/utils/resilient_tcp_server.dart` reimplemented on `dart:io`'s `ServerSocket`: dual-stack bind (`anyIPv6`, `v6Only: false`), port fallback, owner supersede, IPv4-mapped probe normalization, client-gone handling
+   - `lib/utils/core.dart`: no longer silently disables MyWhoosh Link when OBP mDNS is enabled — separate ports, so they coexist
+
 ### Signing + device
 
 - Team ID `5695M74Z7G` set project-wide (from your Apple ID: `Apple Development: dowein@gmail.com (7593WBLX82)`)
@@ -71,6 +90,7 @@ Result: `flutter analyze` lib/ errors **→ 0**; `flutter build ios --debug --no
 
 - **Zwift Ride BLE pairing works** — controller detected, buttons decoded
 - **MyWhoosh Link server opens port 21587** — previously failed with "unimplemented" (the stub); now actually listens
+- **Network self-test is green on iPhone** (build 2026-10-15): advertised address is the Wi-Fi `en0` address, *Advertised address* and *Advertisement visible on the network* both pass; the trainer app connects over the network method (verified on device)
 
 ---
 
@@ -103,7 +123,12 @@ Result: `flutter analyze` lib/ errors **→ 0**; `flutter build ios --debug --no
 - `lib/utils/iap/iap_manager.dart` — `unlockAllPro`, isUsingRevenueCat
 - `lib/utils/iap/revenuecat_service.dart` — early return when unlocked, added missing import
 - `lib/widgets/iap_status_widget.dart` — `Purchases.appUserID` guarded under `unlockAllPro`
-- `prop_public/lib/utils/resilient_tcp_server.dart` — **real** TCP server (the functional key fix)
+- `prop_public/lib/utils/resilient_tcp_server.dart` — **real** dual-stack TCP server (MyWhoosh Link)
+- `prop_public/lib/utils/network_address.dart` — **real** advertised-address picker (LAN scoring; the "No Wi-Fi" fix)
+- `prop_public/lib/mdns/dnssd_service_advertiser.dart` — iOS dns_sd bridge advertiser
+- `prop_public/lib/mdns/service_advertiser.dart` — `platformDefault()` returns DnsSd on iOS, `hostLabel` on the responder
+- `lib/utils/core.dart` — OBP mDNS and MyWhoosh Link coexist (no silent disable)
+- `test/services/network_self_test/advertised_address_picker_test.dart` — picker regression test
 - `prop_public/lib/mdns/mdns_responder.dart` — `MdnsQueryLogEntry` stub
 - `prop_public/lib/emulators/definitions/sensor_definition.dart` — `SensorDefinition` stub
 - `prop_public/lib/utils/csc_measurement.dart` — CSC parse/build stubs
