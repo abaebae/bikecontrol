@@ -86,6 +86,37 @@ Result: `flutter analyze` lib/ errors **→ 0**; `flutter build ios --debug --no
 - `xcrun devicectl device install app --device 00008130-000A741E3C02001C build/ios/iphoneos/Runner.app` deploys to iPhone DIP15
 - On-device: trust Apple Development profile in **Settings → General → VPN & Device Management** if first launch
 
+#### Free Apple ID → the profile expires every 7 days (re-push cadence)
+
+The signing is a **free Apple ID personal team**, so the embedded provisioning
+profile is short-lived. The installed app:
+
+```
+iOS Team Provisioning Profile: de.dominicwein.bikecontrol
+ExpirationDate: 2026-10-21T09:18:58Z   ← 7 days after the 2026-10-15 build
+get-task-allow: true                    ← a development build
+```
+
+When the profile expires iOS refuses to launch the app ("Unable to verify
+app"). Nothing is lost — a fresh **rebuild + reinstall** clears it:
+
+```sh
+flutter build ios --release
+xcrun devicectl device install app --device 00008130-000A741E3C02001C build/ios/iphoneos/Runner.app
+```
+
+- **Re-push at least every 7 days** (by **2026-10-21** for the current build).
+  Once a year if the paid Apple Developer Program ($99/yr) is enrolled.
+- Installing over the same bundle ID **keeps settings**; deleting the app wipes them.
+- Xcode's Run button re-signs and refreshes the profile automatically each run.
+- Check the current expiry on the phone: **Settings → General → VPN & Device
+  Management** → tap the profile.
+
+Other dev-build limits: no TestFlight/App Store distribution; free team allows
+only 3 devices and ~10 App IDs per 7 days; keep **Developer Mode** on and the
+**Local Network** permission granted; `devicectl` over Wi-Fi can drop, so prefer
+the USB cable for installs.
+
 ### Verified so far
 
 - **Zwift Ride BLE pairing works** — controller detected, buttons decoded
