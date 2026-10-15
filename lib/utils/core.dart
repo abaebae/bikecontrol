@@ -629,8 +629,11 @@ class CoreLogic {
     }
 
     if (isObpMdnsEnabled && isMyWhooshLinkEnabled) {
-      // this doesn't make much sense to have both running at the same time, so disable Whoosh Link if OBP mDNS is enabled
-      core.settings.setMyWhooshLinkEnabled(false);
+      // Both OBP mDNS and MyWhoosh Link are enabled. They can coexist but the
+      // user should pick one. Log a warning rather than silently disabling.
+      if (kDebugMode) {
+        print('Warning: Both OBP mDNS and MyWhoosh Link are enabled. Choose one.');
+      }
     }
 
     if (isObpMdnsEnabled && localNetworkOk && !core.obpMdnsEmulator.isStarted.value) {
