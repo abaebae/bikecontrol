@@ -1,9 +1,12 @@
 //INFO: This is a stub - contact me if you need the full implementation.
 //
-// The full implementation is a single-client TCP server with dual-stack
-// listening, reconnect-supersede and port-fallback logic. This stub keeps the
-// public surface so the app compiles.
+// This public stub keeps the surface the app relies on, with a working
+// implementation for the parts the LAN bridging methods need: a single-client
+// TCP server with dual-stack listening, owner-supersede, port fallback and
+// probe filtering. The full implementation additionally handles concurrent
+// clients and reconnect churn.
 
+import 'dart:async';
 import 'dart:io';
 
 class ResilientTcpServer {
@@ -20,7 +23,7 @@ class ResilientTcpServer {
     required this.onClientDisconnected,
     this.onClientLeft,
   }) : assert(portAttempts >= 1),
-       assert(maxConcurrentClients >= 1);
+        assert(maxConcurrentClients >= 1);
 
   final int preferredPort;
   final int portAttempts;
@@ -44,6 +47,7 @@ class ResilientTcpServer {
   final void Function(Socket socket)? onClientLeft;
 
   ServerSocket? _server;
+  StreamSubscription<Socket>? _accepts;
   Socket? _client;
   bool _started = false;
 
@@ -52,22 +56,62 @@ class ResilientTcpServer {
   Socket? get client => _client;
   int get boundPort => _server?.port ?? preferredPort;
 
+  /// The listening address. Dual-stack by default (an `anyIPv6` socket with
+  /// `v6Only: false` accepts IPv4 too), so a peer that reaches us over IPv4 or
+  /// IPv6 — the MyWhoosh app resolves the phone by hostname — both land.
+  InternetAddress get _bindAddress => forceIPv4 ? InternetAddress.anyIPv4 : InternetAddress.anyIPv6;
+
   Future<void> start() async {
     if (_started) return;
-    final server = await ServerSocket.bind(
-      forceIPv4 ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4,
-      preferredPort,
-    );
+
+    // A (re)start supersedes any server of ours still registered under the same
+    // owner — one whose stop is still closing, or one a previous start lost
+    // track of — so we rebind the preferred port instead of walking past it.
+    if (owner != null) {
+      for (final existing in activeServers.where((s) => !identical(s, this) && s.owner == owner).toList()) {
+        await existing.stop();
+      }
+    }
+
+    ServerSocket? server;
+    Object? lastError;
+    for (var attempt = 0; attempt < portAttempts; attempt++) {
+      try {
+        server = await ServerSocket.bind(_bindAddress, preferredPort + attempt, v6Only: false);
+        break;
+      } on SocketException catch (e) {
+        lastError = e;
+      }
+    }
+    if (server == null) {
+      throw lastError ?? SocketException('could not bind $preferredPort');
+    }
+
     _server = server;
     _started = true;
     activeServers.add(this);
-    server.listen((socket) {
+    _accepts = server.listen((socket) {
+      // The network self-test announces its throwaway probe, so it does not
+      // register as a trainer app connecting.
+      if (_isProbe(socket)) {
+        socket.destroy();
+        return;
+      }
       _client = socket;
       onClientConnected(socket);
-      socket.listen((data) => onData(socket, data), onDone: () {
-        onClientDisconnected();
-        _client = null;
-      });
+      var closed = false;
+      void gone() {
+        if (closed) return;
+        closed = true;
+        if (identical(_client, socket)) {
+          _client = null;
+          onClientDisconnected();
+        } else {
+          onClientLeft?.call(socket);
+        }
+      }
+
+      socket.listen((data) => onData(socket, data), onError: (_) => gone(), onDone: gone, cancelOnError: true);
     });
   }
 
@@ -80,23 +124,51 @@ class ResilientTcpServer {
   }) {
     _probeAddress = address;
     _probeSourcePort = sourcePort;
+    _probeExpiry = DateTime.now().add(validity);
   }
 
   String? _probeAddress;
   int? _probeSourcePort;
+  DateTime? _probeExpiry;
+
+  bool _isProbe(Socket socket) {
+    final address = _probeAddress;
+    final port = _probeSourcePort;
+    if (address == null || port == null) return false;
+    final expiry = _probeExpiry;
+    if (expiry != null && DateTime.now().isAfter(expiry)) {
+      _probeAddress = null;
+      _probeSourcePort = null;
+      _probeExpiry = null;
+      return false;
+    }
+    // A dual-stack listener reports IPv4 peers as IPv4-mapped IPv6
+    // (`::ffff:127.0.0.1`); normalise so the announced probe still matches.
+    return _plain(socket.remoteAddress.address) == _plain(address) && socket.remotePort == port;
+  }
+
+  static String _plain(String address) =>
+      address.startsWith('::ffff:') ? address.substring('::ffff:'.length) : address;
 
   void dropClient() {
-    _client?.close();
+    _client?.destroy();
     _client = null;
   }
 
   Future<void> stop() async {
     if (!isRunning) return;
+    _started = false;
+    activeServers.remove(this);
+    final accepts = _accepts;
+    _accepts = null;
+    try {
+      await accepts?.cancel();
+    } catch (_) {}
     try {
       await _server?.close();
     } catch (_) {}
     _server = null;
-    _started = false;
-    activeServers.remove(this);
+    _client?.destroy();
+    _client = null;
   }
 }
